@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html ng-app="gitApp">
+<script src= "http://ajax.googleapis.com/ajax/libs/angularjs/1.4.8/angular.min.js"></script>
+<style>
+header, footer {
+    padding: 1em;
+    color: white;
+    background-color: black;
+    clear: left;
+    text-align: center;
+}
+
+article {
+    border-left: 1px solid gray;
+    padding: 1em;
+    overflow: hidden;
+}
+
+article + article
+{
+  border-top: 1px solid gray;
+}
+
+div.container {
+    width: 100%;
+    border: 1px solid gray;
+}
+
+select {
+  min-width: 100%;
+  border-bottom: 2px solid gray;
+  border-top: 2px solid gray;
+}
+</style>
+<body>
+<div id="maindiv" class="container" ng-controller="gitController">
+
+ <header>
+   <h1>Daniel A Wood : Angular GitHub Issues</h1>
+   <h2>{{getDateRange()}}</h2>
+</header>
+
+<select id="dropdownElt" ng-change="updateArticle()" ng-model="selectValue" 
+ng-options="issue as issue.title for issue in issues"
+>
+</select>
+
+<article>
+<section><b>Created by:</b> {{currentIssue.user.login}}</section>
+<section><b>Updated:</b> {{getUpdatedAtDate()}}</section>
+<section><b>Assignee:</b> {{currentIssue.assignee.login || "None"}}</section>
+<section><b>State:</b> {{currentIssue.state}}</section>
+<section><b>Pull Request:</b> {{currentIssue.pull_request? "Yes" : "No" || "No" }}</section>
+<section><b>Comments:</b> {{currentIssue.body}}</section>
+
+<a href={{currentIssue.html_url}}>Click for more details...</a>
+</article>
+
+</div>
+<script>
+var gitapp = angular.module('gitApp', []);
+gitapp.controller('gitController', function($scope, $http) {
+var sinceDate = new Date();
+sinceDate.setDate(sinceDate.getDate() - 7); //we'll be searching 7 days prior
+var sinceStr = sinceDate.toISOString();
+
+$http.get("https://api.github.com/repos/angular/angular/issues?since="+sinceStr+"&sort=updated").then(function(response) 
+   {
+       //find the last page of data
+       var linkHeaders = response.headers("link");
+       var re = /page=\d+>; rel="last"/m;
+       var re2 = /\d+/m;
+       var regexMatch = linkHeaders.match(re);
+       var lastPage = 1;
+       if(regexMatch[0])
+       {
+           lastPage = regexMatch[0].match(re2);
+       }
+       
+       //store the issues
+       $scope.issues = response.data;
+       
+       //update current issue for data and dropdown display
+       $scope.currentIssue = $scope.issues[0];
+       $scope.selectValue = $scope.currentIssue;
+       
+       var currentPage = 1;
+       //get the remaining pages of data
+       while(currentPage < lastPage)
+       {
+           currentPage+=1;
+           $http.get("https://api.github.com/repos/angular/angular/issues?since="+sinceStr+"&sort=updated&page="+currentPage).then(function(response) 
+           {
+               $scope.issues = $scope.issues.concat(response.data);
+           });
+       }
+   },
+   function(response)
+   {
+       alert(response.status + " : " + response.statusText );
+   });
+   
+$scope.getUpdatedAtDate = function()
+{
+    //format the date a little nicer
+    var dt = new Date($scope.currentIssue.updated_at);
+    return dt.toDateString();
+}
+$scope.updateArticle = function(val)
+{
+    //update the currentIssue so the appropriate data displays
+    $scope.currentIssue = $scope.selectValue;
+}
+$scope.getDateRange = function()
+{
+    var sinceDate = new Date();
+    var now = new Date();
+    sinceDate.setDate(sinceDate.getDate() - 7);
+    
+    return sinceDate.toDateString() + " - " + now.toDateString();
+}
+});
+
+</script>
+</body>
+</html>
